@@ -1,0 +1,5 @@
+{
+  "name": "English Quiz Challenge",
+  "description": "A fun and interactive quiz app that generates English language questions using the Gemini API. Test your knowledge and see how high you can score!",
+  "requestFramePermissions": []
+}
