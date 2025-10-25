@@ -1,4 +1,3 @@
-// This file is no longer used. The application now securely handles the API key
-// via the `process.env.API_KEY` environment variable. The manual API key
-// entry functionality has been removed.
-export {};
+// This file is intentionally blank.
+// All API key logic has been removed from the client-side code.
+// The application now uses environment variables for the API key.

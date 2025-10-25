@@ -1,10 +1,5 @@
-import React from 'react';
-
-// This component is no longer used. The application now uses the API key
-// from the environment variable `process.env.API_KEY`. The manual entry
-// screen has been removed for better security and user experience.
-const ApiKeyScreen: React.FC = () => {
-    return null;
-};
-
+// This component is intentionally blank.
+// The UI for manually entering an API key has been removed for security.
+// The application now uses environment variables for the API key.
+const ApiKeyScreen = () => null;
 export default ApiKeyScreen;
