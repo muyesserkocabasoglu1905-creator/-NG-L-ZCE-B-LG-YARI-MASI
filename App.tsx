@@ -60,7 +60,7 @@ const App: React.FC = () => {
     if (gameState === 'results' && quizSettings && questions.length > 0) {
       saveHighScore(score, correctAnswersCount, questions.length, quizSettings.grade as Grade, quizSettings.topic, quizSettings.difficulty as Difficulty, playerName);
     }
-  }, [gameState]);
+  }, [gameState, quizSettings, score, correctAnswersCount, questions, playerName]);
 
 
   const handleStartQuiz = useCallback(async (grade: string, topic: string, difficulty: string, questionType: QuestionType, count: number) => {
@@ -78,7 +78,8 @@ const App: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "An unknown error occurred while generating the quiz.");
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred while generating the quiz.";
+      setError(errorMessage);
       setGameState('start');
     }
   }, []);

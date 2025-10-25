@@ -1,7 +1,10 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { QuestionType, QuizQuestion } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAiClient = () => {
+    // The API key is now expected to be available as an environment variable.
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+}
 
 const getResponseSchemaForType = (questionType: QuestionType) => {
     const baseProperties = {
@@ -60,7 +63,7 @@ export const generateQuizQuestions = async (
   questionType: QuestionType,
   count: number = 5
 ): Promise<QuizQuestion[]> => {
-  // Fix: Use a supported model name. `gemini-pro` is deprecated.
+  const ai = getAiClient();
   const model = 'gemini-2.5-flash'; 
 
   const schema = getResponseSchemaForType(questionType);
