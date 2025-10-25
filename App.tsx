@@ -11,10 +11,11 @@ import QuestionBankScreen from './components/QuestionBankScreen';
 import HighScoresScreen from './components/HighScoresScreen';
 import QuestionCountSelectionScreen from './components/QuestionCountSelectionScreen';
 import NameInputScreen from './components/NameInputScreen';
+import ApiKeyScreen from './components/ApiKeyScreen';
 
 
 import { generateQuizQuestions } from './services/geminiService';
-import { QuizQuestion, QuestionType } from './types';
+import { QuizQuestion, QuestionType, StoredQuestion } from './types';
 import { Grade, Difficulty } from './data/topics';
 import { getQuestionsFromBank, saveQuestionsToBank, clearAllQuestionsFromBank } from './utils/questionBank';
 import { saveHighScore, clearHighScores } from './utils/highScores';
@@ -37,6 +38,26 @@ const App: React.FC = () => {
   
   const [bankFlowIntent, setBankFlowIntent] = useState<'view' | 'play' | null>(null);
   const [candidateQuestions, setCandidateQuestions] = useState<QuizQuestion[]>([]);
+
+  const [apiKeyIsReady, setApiKeyIsReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkApiKey = async () => {
+      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+        try {
+          const hasKey = await window.aistudio.hasSelectedApiKey();
+          setApiKeyIsReady(hasKey);
+        } catch (e) {
+          console.error("Error checking for API key:", e);
+          setApiKeyIsReady(false); // Assume no key if check fails
+        }
+      } else {
+        console.warn('aistudio API not found. Assuming API key is set via environment variables.');
+        setApiKeyIsReady(true);
+      }
+    };
+    checkApiKey();
+  }, []);
 
   useEffect(() => {
     const clearData = () => {
@@ -79,6 +100,14 @@ const App: React.FC = () => {
     } catch (err) {
       console.error(err);
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred while generating the quiz.";
+      
+      if (errorMessage.includes("API key not valid") || errorMessage.includes("Requested entity was not found")) {
+        setError("Your API Key appears to be invalid. Please select a valid key to continue.");
+        setApiKeyIsReady(false);
+        setGameState('welcome');
+        return;
+      }
+      
       setError(errorMessage);
       setGameState('start');
     }
@@ -110,6 +139,10 @@ const App: React.FC = () => {
         count: selectedQuestions.length,
     });
     setGameState('name-input');
+  };
+
+  const handleKeySelected = () => {
+    setApiKeyIsReady(true);
   };
 
   const handleNameSubmit = (name: string) => {
@@ -232,6 +265,31 @@ const App: React.FC = () => {
         return <WelcomeScreen onStartNewQuiz={() => setGameState('start')} onStartFromBank={() => { setBankFlowIntent('play'); setGameState('grade-selection'); }} onViewQuestionBank={() => { setBankFlowIntent('view'); setGameState('grade-selection'); }} onViewHighScores={() => setGameState('high-scores')} error={error} />;
     }
   };
+
+  if (apiKeyIsReady === null) {
+    return (
+      <div className="h-screen w-screen bg-slate-900 text-white font-sans">
+        <main className="w-full h-full">
+          {renderInCenteredCard(
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-purple-400"></div>
+              <p className="text-lg text-slate-300">Checking Setup...</p>
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
+  if (apiKeyIsReady === false) {
+    return (
+      <div className="h-screen w-screen bg-slate-900 text-white font-sans">
+        <main className="w-full h-full">
+          <ApiKeyScreen onKeySelect={handleKeySelected} />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen bg-slate-900 text-white font-sans">
