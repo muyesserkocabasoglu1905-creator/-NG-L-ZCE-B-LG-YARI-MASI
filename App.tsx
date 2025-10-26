@@ -22,6 +22,8 @@ import { saveHighScore, clearHighScores } from './utils/highScores';
 
 type GameState = 'welcome' | 'start' | 'loading' | 'post-generation' | 'name-input' | 'quiz' | 'results' | 'grade-selection' | 'difficulty-selection' | 'question-bank' | 'high-scores' | 'question-count-selection';
 
+const API_KEY_STORAGE_KEY = 'geminiApiKey';
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>('welcome');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -39,24 +41,16 @@ const App: React.FC = () => {
   const [bankFlowIntent, setBankFlowIntent] = useState<'view' | 'play' | null>(null);
   const [candidateQuestions, setCandidateQuestions] = useState<QuizQuestion[]>([]);
 
-  const [apiKeyIsReady, setApiKeyIsReady] = useState<boolean | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkApiKey = async () => {
-      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-        try {
-          const hasKey = await window.aistudio.hasSelectedApiKey();
-          setApiKeyIsReady(hasKey);
-        } catch (e) {
-          console.error("Error checking for API key:", e);
-          setApiKeyIsReady(false); // Assume no key if check fails
-        }
-      } else {
-        console.warn('aistudio API not found. Assuming API key is set via environment variables.');
-        setApiKeyIsReady(true);
-      }
-    };
-    checkApiKey();
+    const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+    if (savedKey) {
+        setApiKey(savedKey);
+    }
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -83,13 +77,23 @@ const App: React.FC = () => {
     }
   }, [gameState, quizSettings, score, correctAnswersCount, questions, playerName]);
 
+  const handleApiKeySubmit = (key: string) => {
+    setApiKey(key);
+    localStorage.setItem(API_KEY_STORAGE_KEY, key);
+    setApiKeyError(null);
+  };
+
 
   const handleStartQuiz = useCallback(async (grade: string, topic: string, difficulty: string, questionType: QuestionType, count: number) => {
+    if (!apiKey) {
+        setApiKeyError("API Key is not set. Please enter your key.");
+        return;
+    }
     setGameState('loading');
     setError(null);
     setQuizSettings({ grade, topic, difficulty, count });
     try {
-      const newQuestions = await generateQuizQuestions(grade, topic, difficulty, questionType, count);
+      const newQuestions = await generateQuizQuestions(apiKey, grade, topic, difficulty, questionType, count);
       if (newQuestions && newQuestions.length > 0) {
         setQuestions(newQuestions);
         saveQuestionsToBank(newQuestions, grade, topic, difficulty);
@@ -101,17 +105,18 @@ const App: React.FC = () => {
       console.error(err);
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred while generating the quiz.";
       
-      if (errorMessage.includes("API key not valid") || errorMessage.includes("Requested entity was not found")) {
-        setError("Your API Key appears to be invalid. Please select a valid key to continue.");
-        setApiKeyIsReady(false);
-        setGameState('welcome');
+      if (errorMessage.includes("API Key appears to be invalid")) {
+        setApiKey(null);
+        localStorage.removeItem(API_KEY_STORAGE_KEY);
+        setApiKeyError(errorMessage);
+        setGameState('welcome'); // Go to a neutral state, render will show ApiKeyScreen
         return;
       }
       
       setError(errorMessage);
       setGameState('start');
     }
-  }, []);
+  }, [apiKey]);
   
   const handleStartFromBankFlow = (difficulty: Difficulty) => {
       setSelectedDifficulty(difficulty);
@@ -139,10 +144,6 @@ const App: React.FC = () => {
         count: selectedQuestions.length,
     });
     setGameState('name-input');
-  };
-
-  const handleKeySelected = () => {
-    setApiKeyIsReady(true);
   };
 
   const handleNameSubmit = (name: string) => {
@@ -266,14 +267,14 @@ const App: React.FC = () => {
     }
   };
 
-  if (apiKeyIsReady === null) {
+  if (isLoading) {
     return (
       <div className="h-screen w-screen bg-slate-900 text-white font-sans">
         <main className="w-full h-full">
           {renderInCenteredCard(
             <div className="flex flex-col items-center justify-center space-y-4">
               <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-purple-400"></div>
-              <p className="text-lg text-slate-300">Checking Setup...</p>
+              <p className="text-lg text-slate-300">Loading...</p>
             </div>
           )}
         </main>
@@ -281,11 +282,11 @@ const App: React.FC = () => {
     );
   }
 
-  if (apiKeyIsReady === false) {
+  if (!apiKey) {
     return (
       <div className="h-screen w-screen bg-slate-900 text-white font-sans">
         <main className="w-full h-full">
-          <ApiKeyScreen onKeySelect={handleKeySelected} />
+          <ApiKeyScreen onKeySubmit={handleApiKeySubmit} error={apiKeyError} />
         </main>
       </div>
     );

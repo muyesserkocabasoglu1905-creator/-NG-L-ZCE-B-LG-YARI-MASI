@@ -1,9 +1,11 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { QuestionType, QuizQuestion } from '../types';
 
-const getAiClient = () => {
-    // The API key is now expected to be available as an environment variable.
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAiClient = (apiKey: string) => {
+    if (!apiKey) {
+        throw new Error("API key is missing.");
+    }
+    return new GoogleGenAI({ apiKey });
 }
 
 const getResponseSchemaForType = (questionType: QuestionType) => {
@@ -57,13 +59,14 @@ const getResponseSchemaForType = (questionType: QuestionType) => {
 }
 
 export const generateQuizQuestions = async (
+  apiKey: string,
   grade: string,
   topic: string,
   difficulty: string,
   questionType: QuestionType,
   count: number = 5
 ): Promise<QuizQuestion[]> => {
-  const ai = getAiClient();
+  const ai = getAiClient(apiKey);
   const model = 'gemini-2.5-flash'; 
 
   const schema = getResponseSchemaForType(questionType);
@@ -130,6 +133,9 @@ export const generateQuizQuestions = async (
     return filteredQuestions;
   } catch (error) {
     console.error("Error generating quiz questions from Gemini API:", error);
+    if (error instanceof Error && (error.message.includes('API key not valid') || error.message.includes('permission denied') || error.message.includes('API_KEY_INVALID'))) {
+        throw new Error('Your API Key appears to be invalid. Please check it and try again.');
+    }
     throw new Error("Failed to generate quiz questions. The API returned an error or invalid data.");
   }
 };
